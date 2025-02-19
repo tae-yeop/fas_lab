@@ -1,0 +1,44 @@
+training:
+  num_epochs : 100
+  train_batch_size : 64
+  val_batch_size : 32
+  extractor_lr : 0.0001
+  denoiser_lr : 0.0001
+  random_seed : 77
+  resume : false
+  inference : false
+  model_dir : null
+  model_filename : null
+
+denoiser:
+  denoiser_model : uhdmdenoiser
+  multi_loss_l1 : 1
+  multi_loss_p : 1
+
+
+extractor:
+  extractor_model : moiredetextractor
+  extractor_loss:
+    smooth_l1_loss:
+      lambda: 1.0
+      active: true
+    proxy_loss:
+      lambda: 1.0
+      active: true
+    dist_loss:
+      lambda: 1
+      active: true
+    direction_loss:
+      lambda: 1
+      active: true
+
+eval:
+  validation_steps : 1000
+  val_batch_size : 64
+  
+dataset:
+  img_size : 512
+
+model:
+  denoiser : uhdmdenoiser
+  extractor : moiredetextractor

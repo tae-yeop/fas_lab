@@ -1,0 +1,88 @@
+training:
+  expname : simple-wavegan-2-fhd
+  resume : false
+  inference : false
+  fp16 : false
+  num_epochs : 80
+  train_batch_size : 64 # 16, 32, 64로 하니 OOM
+  val_batch_size : 32
+  # validation_steps : 100
+  validation_epoch : 1
+  random_seed : 77
+  model_dir : null
+  checkpoint_steps : 50
+  wandb:
+    use : false
+    key : null
+    host : null
+
+optimization:
+  optimizer : adamw
+  learning_rates : {denoiser : 0.001, noiser : 0.005}
+  optimizer_args: {betas: [0.9, 0.999], weight_decay: 0}
+  scale_lr : false
+  scheduler_gamma : 0.1
+model:
+  model : model1_wg
+  # denoiser_class : uhdmdenoiser
+  # noiser_class : uhdmdenoiser
+  noiser_model :
+    class: wavegan
+    # en_feature_num : 48
+    # en_inter_num : 32
+    # de_feature_num : 64
+    # de_inter_num : 32
+    # sam_number : 2
+    rate : 0.5
+  denoiser_model :
+    class: uhdmdenoiser
+    en_feature_num : 48
+    en_inter_num : 32
+    de_feature_num : 64
+    de_inter_num : 32
+    sam_number : 2
+    training : false
+    pretrained : /purestorage/project/tyk/3_CUProjects/FAS/i2i-translation/pretrained/uhdm_large_checkpoint.pth
+  objective :
+    # denoiser_loss:
+    #   multi_perceptual :
+    #     coeff : 1
+    #     params : {lam: 1, lam_p : 1}
+    #   fl_loss :
+    #     coeff : 1
+    #     params : {loss_weight : 1, alpha : 1}
+
+    noiser_loss: 
+      # multi_perceptual :
+      #   coeff : 1
+      #   params : {lam: 1, lam_p : 1}
+      single_vgg_loss: 
+        coeff : 1
+        params : {lam: 1, lam_p : 1}
+      # fl_loss :
+      #   coeff : 1
+      #   params : {loss_weight : 1, alpha : 1}
+      # patch_freq:
+      #   coeff : 1
+      #   params : {patch_size : 16, norm : l1}
+      # cyc_loss : 
+      #   coeff : 1
+      #   params : {lam: 1, lam_p : 1}
+      # gan_loss:
+      #   coeff : 1 
+      #   type: hinge
+      #   r1 : true
+      #   r1_every : 5
+    # denoiser_loss: 
+    #   type : classic_cyc_loss
+    #   params : {lam: 1, lam_p : 1}
+
+    # denoiser_loss : [{type: classic_cyc_loss, params: {lam: 1, lam_p : 1}}, {type: ffl, params : {loss_weight : 1, alpha : 1}}]
+    # noiser_loss: 
+    #   type : classic_cyc_loss
+    #   params : {lam : 1, lam_p : 1}
+  
+dataset:
+  train_img_size : 256
+  train_dataset_list : ['fhd'] # ['uhd'] #, 'lcm', 'fhd', 'md', 'vdd']
+  test_dataset_list : ['uhd'] # ['uhd']
