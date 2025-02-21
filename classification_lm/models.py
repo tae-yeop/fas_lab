@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import timm
+from torch_geometric.nn import GCNConv, global_mean_pool
 
 class SimpleModel(nn.Module):
     def __init__(
@@ -48,4 +49,31 @@ class ViT_Model(nn.Module):
 
     def forward(self, x):
         out = self.vit(x)
+        return out
+
+
+class LandmarkGNN(nn.Module):
+    def __init__(self, in_channels=2, hidden_dim=64, out_dim=1):
+        super().__init__()
+        self.conv1 = GCNConv(in_channels, hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim)
+        self.fc = nn.Linear(hidden_dim, out_dim)
+
+    def forward(self, data):
+        x, edge_index = data.x, data.edge_index
+        batch = data.batch if hasattr(data, 'batch') else None
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+
+        # 그래프 풀링 (여기서는 mean-pool)
+        if batch is not None:
+            x = global_mean_pool(x, batch)
+        else:
+            # 단일 그래프이면 전체 노드 평균
+            x = x.mean(dim=0, keepdim=True)
+        
+        # 분류기
+        out = self.fc(x)  # shape [batch_size, out_dim]
         return out

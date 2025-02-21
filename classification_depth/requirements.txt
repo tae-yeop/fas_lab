@@ -1,0 +1,5 @@
+timm
+einops
+imutils
+mediapipe
+opencv-python==4.5.3.56

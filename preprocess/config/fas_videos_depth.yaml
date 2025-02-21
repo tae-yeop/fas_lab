@@ -1,0 +1,72 @@
+# CUBOX :
+#   dataset_name : 'CUBOX'
+#   src : '/purestorage/datasets/face_anti_spoofing/CUBOX_RGB_FAS_1k_people/'
+#   dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/landmark_label'
+#   multi_processing : True
+#   use_keypoint : True
+#   label_function : 
+#     isFunction : False
+#     name : cubox_label_function
+
+TEST :
+  dataset_name : 'TEST'
+  src : 
+    - '/purestorage/datasets/fas_processed_data/macbook/'
+    - '/purestorage/datasets/fas_processed_data/xps/'
+    - '/purestorage/datasets/fas_processed_data/hkl'
+  dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/depth_label'
+  multi_processing : True
+  use_keypoint : True
+  label_function : 
+    isFunction : False
+    name : test_label_function
+
+# FAS_PAPER :
+#   dataset_name : 'FAS_PAPER'
+#   src : '/purestorage/datasets/fas_processed_data/fas_paper/'
+#   dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/landmark_label'
+#   multi_processing : True
+#   use_keypoint : True
+#   label_function : 
+#     isFunction : False
+#     name : fas_paper_label_function
+
+# LCC_FASD :
+#   dataset_name : 'LCC_FASD'
+#   src : '/purestorage/datasets/fas_processed_data/LCC_FASD/'
+#   dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/landmark_label'
+#   multi_processing : True
+#   use_keypoint : True
+#   label_function : 
+#     isFunction : False
+#     name : lcc_fasd_label_function
+
+# ROSE_YOUTU :
+#   dataset_name : 'ROSE_YOUTU'
+#   src : '/purestorage/datasets/fas_processed_data/Rose_youtu/'
+#   dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/landmark_label'
+#   multi_processing : True
+#   use_keypoint : True
+#   label_function : 
+#     isFunction : False
+#     name : rose_label_function
+
+# REAL_VS_FAKE :
+#   dataset_name : 'REAL_VS_FAKE'
+#   src : '/purestorage/datasets/fas_processed_data/real_vs_fake/'
+#   dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/landmark_label'
+#   multi_processing : True
+#   use_keypoint : True
+#   label_function : 
+#     isFunction : False
+#     name : rvsf_label_function
+
+# CELEBREAL :
+#   dataset_name : 'CELEB_REAL'
+#   src : '/purestorage/datasets/fas_processed_data/Celebfacedata/'
+#   dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/landmark_label'
+#   multi_processing : True
+#   use_keypoint : True
+#   label_function : 
+#     isFunction : False
+#     name : real_label_function

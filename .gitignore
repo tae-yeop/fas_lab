@@ -1,5 +1,7 @@
 *.onnx
 *.pt
+*.pth
+*.h7
 *.out
 trainable_params.txt
 logs
@@ -9,6 +11,9 @@ temp
 checkpoints
 data
 runs
+output
+output*
+examples
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
