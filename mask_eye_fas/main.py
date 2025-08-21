@@ -6,7 +6,9 @@ import os
 from models import LandmarkDetector, SpoofChecker, LEFT_EYE_IDX, RIGHT_EYE_IDX
 from utils import crop_eye_region
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict,  field
+from typing import List
+
 @dataclass
 class SpoofConfig:
     # canny edge thresholds
@@ -31,6 +33,19 @@ class SpoofConfig:
     # optical flow check thresholds
     flow_range1:float = 0.5
     flow_range2:float = 3.0
+
+    # rppg check thresholds
+    rppg_method:str = 'green'
+    fps:int = 30
+    bandpass_low:float = 0.7
+    bandpass_high:float = 4.0
+    rppg_ampl_thresh:float = 0.5
+    skin_low:List[int] = field(default_factory=lambda: [0, 133, 77])
+    skin_high:List[int] = field(default_factory=lambda: [235, 173, 127])
+    snr_thresholds:List[int] = field(default_factory=lambda: [0.102, 0.125, 0.05, 0.07])
+
+    # final spoof check thresholds
+    total_count:int = 2
 
     def dict(self):
         return {k: v for k, v in asdict(self).items()}

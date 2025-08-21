@@ -1,7 +1,5 @@
 #!/bin/bash -l
 
-##SBATCH --nodelist=nv180
-
 #SBATCH --time=99:00:00
 #SBATCH -p 40g
 #SBATCH --nodes=1            # This needs to match Trainer(num_nodes=...)
@@ -12,10 +10,10 @@
 
 # /purestorage/project/shhong/enroot_images/pytorch_2_5_1.sqsh
 srun --container-image /purestorage/AILAB/AI_1/tyk/0_Software/test.sqsh \
-    --container-mounts /purestorage:/purestorage,/purestorage/project/tyk/0_Software/cache:/home/$USER/.cache \
+    --container-mounts /purestorage:/purestorage,/purestorage/AILAB/AI_1/tyk/0_Software/cache:/home/$USER/.cache \
     --no-container-mount-home --unbuffered \
     --container-writable \
-    --container-workdir /purestorage/AILAB/AI_1/tyk/3_CUProjects/fas_lab/preprocess \
+    --container-workdir /purestorage/AILAB/AI_1/tyk/3_CUProjects/fas_lab/replay_bazel \
     bash -c "
-    python preprocess.py $@
+    python edge_boundary_color.py $@
     "

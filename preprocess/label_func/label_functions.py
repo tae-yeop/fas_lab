@@ -6,6 +6,7 @@ import torch
 
 from .registry import register_label_function
 from .labelers import LandmarkDetector, DepthEstimator
+from .utils import crop_eye_region
 
 # 68개 랜드마크 인덱스
 LANDMARK_POINTS_68 = [
@@ -15,6 +16,22 @@ LANDMARK_POINTS_68 = [
     380,61,39,37,0,267,269,291,405,314,17,84,181,78,82,13,312,
     308,317,14,87
 ]
+
+
+# 왼쪽 눈 인덱스
+LEFT_EYE_IDX = [
+    33, 246, 161, 160, 159, 158, 157, 173,
+    133, 155, 154, 153, 145, 144, 163, 7,
+    468, 469, 470, 471  # 아이리스
+]
+
+# 오른쪽 눈 인덱스
+RIGHT_EYE_IDX = [
+    263, 466, 388, 387, 386, 385, 384, 398,
+    362, 382, 381, 380, 374, 373, 390, 249,
+    472, 473, 474, 475  # 아이리스
+]
+
 
 
 @register_label_function("test_label")
@@ -97,3 +114,26 @@ def label_with_depth_map_midas(filename: str, device: str, dest_path: str):
     cv2.imwrite(dest_path, depth_colored)
 
     return depth_colored
+
+
+@register_label_function("blink_eye_feats")
+def label_with_blink_eye_feats(filename: str):
+    image = cv2.imread(filename)
+    image = cv2.resize(image, (640, 640))
+
+    face_mesh = LandmarkDetector.get_instance()
+    feat_extrator = 
+    landmarks = face_mesh.forward(image)
+
+    left_eye_roi = crop_eye_region(frame, landmarks, LEFT_EYE_IDX)
+    right_eye_roi = crop_eye_region(frame, landmarks, RIGHT_EYE_IDX)
+
+    left_gray = cv2.cvtColor(left_eye_roi, cv2.COLOR_BGR2GRAY)
+    right_gray = cv2.cvtColor(right_eye_roi, cv2.COLOR_BGR2GRAY)
+
+
+    return_dict = {
+        'edge' : ,
+        'shadow': ,
+        ''
+    }

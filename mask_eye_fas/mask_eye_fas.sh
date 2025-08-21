@@ -13,10 +13,14 @@ srun --container-image /purestorage/AILAB/AI_1/tyk/0_Software/test.sqsh \
     --container-mounts /purestorage:/purestorage,/purestorage/AILAB/AI_1/tyk/0_Software/cache:/home/$USER/.cache \
     --no-container-mount-home --unbuffered \
     --container-writable \
-    --container-workdir /purestorage/AILAB/AI_1/tyk/3_CUProjects/fas_lab/eye_crop_fas \
+    --container-workdir /purestorage/AILAB/AI_1/tyk/3_CUProjects/fas_lab/mask_eye_fas \
     bash -c "
-    python main.py $@
+    python train_dnn.py $@
     "
 
+# python train_xgb.py
+# python check_prepared_data.py
+# python prepare_data.py
+# python main.py 
 # eye_crop.py
 # pip install moviepy &&

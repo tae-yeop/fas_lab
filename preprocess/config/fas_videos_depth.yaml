@@ -14,7 +14,7 @@ TEST :
     - '/purestorage/datasets/fas_processed_data/macbook/'
     - '/purestorage/datasets/fas_processed_data/xps/'
     - '/purestorage/datasets/fas_processed_data/hkl'
-  dest : '/purestorage/project/tyk/3_CUProjects/iBeta/dataset/depth_label'
+  dest : '/purestorage/AILAB/AI_1/tyk/3_CUProjects/fas_lab/mask_eye_fas/label_test'
   multi_processing : True
   use_keypoint : True
   label_function : 

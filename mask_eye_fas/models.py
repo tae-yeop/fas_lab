@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-
+from scipy.signal import butter, filtfilt
 import mediapipe as mp
 LEFT_EYE_IDX = [
     33, 246, 161, 160, 159, 158, 157, 173,
@@ -66,13 +66,13 @@ class SpoofChecker:
         if self.output_dir and not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir, exist_ok=True)
 
-        if self.debug:
-            self.edge_density_history = []
-            self.shadow_diff_history = []
-            self.reflection_ratio_history = []
-            self.freq_mean_history = []
-            self.flow_history = []
-
+        # if self.debug:
+        self.edge_density_history = []
+        self.shadow_diff_history = []
+        self.reflection_ratio_history = []
+        self.freq_mean_history = []
+        self.flow_history = []
+        self.rppg_amplitude_history = []
 
     def check_edge_pattern(self, eye_roi):
         """
@@ -291,8 +291,174 @@ class SpoofChecker:
         # 역변환
         filtered_signal = np.fft.irfft(fft_vals, n=total_frames).astype(np.float32)
         
+    def _bandpass_filter(self, signal, fs, low_hz, high_hz):
+        """
+        밴드패스 필터링
+        """
+        if len(signal) < 4:
+            return signal
 
-    
+        nyq = fs/2
+
+
+    def _simple_detrend(self, signal, fps):
+        """
+        Moving average detrend
+        """
+        L = len(signal)
+        window = int(round(fps))
+        if window<1: window = 1
+        padded = np.pad(signal, (window//2, window//2), mode='edge')
+        out = []
+        for i in range(L):
+            seg = padded[i:i+window]
+            seg_mean = seg.mean()
+            out.append( (signal[i]-seg_mean)/ (seg_mean+1e-8) )
+        return np.array(out,dtype=np.float32)
+
+    def _simple_dft(self, signal, fps):
+        arr_f32 = np.float32(signal)
+        n = len(signal)
+        dft = cv2.dft(np.array([arr_f32]), flags=cv2.DFT_COMPLEX_OUTPUT)
+        complex_arr = dft[0]  # shape=(n,2)
+        mag = np.sqrt(complex_arr[:,0]**2 + complex_arr[:,1]**2)
+
+        half_n = n//2
+        half = []
+        for i in range(half_n):
+            half.append(mag[i] + mag[n-1-i])
+        freq_spectrum = np.array(half, dtype=np.float32)
+
+        freq_array = np.linspace(0, fps/2, half_n, endpoint=False)  # 0..fps/2
+        return freq_spectrum, freq_array
+
+    def _get_snr1(self, freq_spectrum, freq_array):
+        # band limit
+        band_low = self.rppg_params['band_low_bpm']
+        band_high= self.rppg_params['band_high_bpm']
+        
+        if len(freq_spectrum)==0: return 0.0
+        
+        max_idx = np.argmax(freq_spectrum)
+        max_val = freq_spectrum[max_idx]
+        
+        # sum of out-of-band => noise
+        noise_sum=0; noise_cnt=0
+        for i in range(freq_spectrum.shape[0]):
+            BPM = freq_array[i]*60
+            if BPM<band_low or BPM>band_high:
+                noise_sum += freq_spectrum[i]
+                noise_cnt +=1
+        if noise_cnt>0:
+            noise_sum /= noise_cnt
+        ratio = (noise_sum / max_val) if max_val>1e-8 else 999
+        return ratio
+
+
+    def _check_rppg_green(self, frame_eyes):
+        """
+        1) 프레임마다 G 채널 평균 -> rPPG 시그널
+        2) 밴드패스 필터
+        3) 표준편차를 통한 신호 품질 -> 임계값 비교
+        """
+        if len(frame_eyes) < 2:
+            # 프레임 수가 너무 적으면 rPPG 불가
+            suspicious = True
+            amplitude = 0.0
+            return suspicious, amplitude
+
+        fs = self.cfg.get('fs', 30.0)
+        low_hz = self.cfg.get('low_hz', 0.7)
+        high_hz = self.cfg.get('high_hz', 4.0)
+        rppg_thr = self.cfg.get('rppg_ampl_thresh', 0.5)
+
+        # 시계열 얻기
+        rppg_signal = []
+        for frame in frame_eyes:
+            if frame is None:
+                rppg_signal.append(0.0)
+                continue
+            g_chan = frame[:,:,1] # G 채널
+            avg_g = np.mean(g_chan)
+            rppg_signal.append(avg_g)
+
+        rppg_signal = np.array(rppg_signal, dtype=np.float32)
+
+        # 밴드패스 필터
+        nyq = fs/2
+        b, a  = butter(2, [low_hz/nyq, high_hz/nyq], btype='band')
+        rppg_f = filtfilt(b, a, rppg_signal)
+
+        # 표준편차
+        amplitude = np.std(rppg_f)
+
+        # 임계값 판단
+        suspicious = (amplitude < rppg_thr)
+
+        # history
+        self.rppg_amplitude_history.append(amplitude)
+
+        return suspicious, amplitude
+
+    def _check_rppg_ycrcb(self, frame_eyes):
+        """
+        """
+        if len(frame_eyes) < 10:
+            return True, 0.0
+
+        
+        skin_low  = np.array(self.cfg.get('skin_low', [0,133,77]), np.uint8)
+        skin_high = np.array(self.cfg.get('skin_high',[235,173,127]), np.uint8)
+        snr_thr   = self.cfg.get('snr_thresholds', [0.102, 0.125, 0.05, 0.07])
+
+        # Cr+Cb 시그널 생성
+        ppg_vals = []
+        for f in frame_eyes:
+            ycrcb = cv2.cvtColor(f, cv2.COLOR_BGR2YCrCb)
+            mask = cv2.inRange(ycrcb, skin_low, skin_high)
+            n_pix = np.count_nonzero(mask)
+
+            if n_pix < 10:
+                n_pix = f.shape[0]*f.shape[1]
+                mask = np.ones((f.shape[0],f.shape[1]), dtype=np.uint8)
+
+            # Cr, Cb 합
+            y, cr, cb = cv2.split(ycrcb)
+            cr[mask==0] = 0
+            cb[mask==0] = 0
+            ppg_val = (cr.sum() + cb.sum()) / n_pix
+            ppg_vals.append(ppg_val)
+
+        ppg_arr = np.array(ppg_vals, dtype=np.float32)
+
+        # detrend (조명이나 장기 변화 제거)
+        ppg_det = self._simple_detrend(ppg_arr, self.fps)
+
+        # DFT -> half-spectrum
+        freq_spectrum, freq_array = self._simple_dft(ppg_det, self.fps)
+
+        # Snr1, Snr2
+        snr1 = self._get_snr1(freq_spectrum, freq_array)
+        snr2 = self._get_snr2(freq_spectrum, freq_array)
+
+        suspicious = False
+
+        if snr1 > 999 or snr2 > 999:  
+            suspicious=True
+        elif snr1 >= snr_thr[0] or snr2 >= snr_thr[1]:
+            suspicious=True
+
+        return suspicious, snr1
+
+    def check_rppg(self, frame_eyes):
+        method = self.cfg.rppg_method.lower()
+        if method == 'green':
+            return self._check_rppg_green(frame_eyes)
+        elif method == 'ycrcb':
+            return self._check_rppg_ycrcb(frame_eyes)
+        else:
+            raise ValueError("Invalid rPPG method: {}".format(method))
+
     
     def compute_lbp_feature(self, gray_img, neighbors=8, radius=1):
         """
@@ -385,6 +551,43 @@ class SpoofChecker:
 
         return e_susp, s_susp, r_susp, f_susp
 
+
+    def extract_features(self, eye_roi):
+        _, edge_val = self.check_edge_pattern(eye_roi)
+        _, shadow_val = self.check_shadow(eye_roi)
+        _, refl_val = self.check_reflection(eye_roi)
+        _, freq_val = self.analyze_frequency(eye_roi)
+
+        feature_dict = {
+            "edge": edge_val,
+            "shadow": shadow_val,
+            "reflection": refl_val,
+            "freq": freq_val
+        }
+
+        return feature_dict
+
+    def final_spoof_check(self, eye_roi=None, eye_roi_sequence=None, flow_sequence=None, rppg_sequence=None):
+        e_susp, s_susp, r_susp, f_susp = self.process_frame(eye_roi)
+
+        # Optical Flow
+        if flow_sequence is not None:
+            flow_susp, flow_val = self.analyze_optical_flow(flow_sequence)
+        else:
+            flow_susp = False
+
+        # rPPG
+        if rppg_sequence is not None:
+            rppg_susp, rppg_amp = self.check_rppg(rppg_sequence)
+        else:
+            rppg_susp = False
+
+        suspicious_count = sum([int(e_susp), int(s_susp), int(r_susp), int(flow_susp), int(rppg_susp)])
+        # 임의 로직
+        is_spoof = (suspicious_count >= self.cfg.total_count)
+        return is_spoof
+
+
     def plot_histories(self, prefix=None):
         frames = np.arange(len(self.edge_density_history))
         n_flow = len(self.flow_history)
@@ -392,6 +595,7 @@ class SpoofChecker:
         
         plt.figure(figsize=(12, 10)) 
 
+        # 1) Edge
         plt.subplot(3, 2, 1)
         plt.plot(frames, self.edge_density_history, 'r-', label="Edge Density")
         plt.title("Edge Density")
@@ -399,6 +603,7 @@ class SpoofChecker:
         plt.ylabel("Value")
         plt.legend()
 
+        # 2) Shadow
         plt.subplot(3, 2, 2)
         plt.plot(frames, self.shadow_diff_history, 'g-', label="Shadow Diff")
         plt.title("Shadow Diff")
@@ -406,6 +611,7 @@ class SpoofChecker:
         plt.ylabel("Value")
         plt.legend()
 
+        # 3) Reflection
         plt.subplot(3, 2, 3)
         plt.plot(frames, self.reflection_ratio_history, 'b-', label="Reflection Ratio")
         plt.title("Reflection Ratio")
@@ -413,6 +619,7 @@ class SpoofChecker:
         plt.ylabel("Value")
         plt.legend()
 
+        # 4) Frequency
         plt.subplot(3, 2, 4)
         plt.plot(frames, self.freq_mean_history, 'm-', label="Frequency Mean")
         plt.title("Frequency Mean")
@@ -420,9 +627,20 @@ class SpoofChecker:
         plt.ylabel("Value")
         plt.legend()
 
+        # 5) Flow
         plt.subplot(3, 2, 5)
         plt.plot(frames_flow, self.flow_history, 'c-', label="Optical Flow")
         plt.title("Optical Flow Magnitude")
+        plt.xlabel("Frame")
+        plt.ylabel("Value")
+        plt.legend()
+
+        # 6) rPPG amplitude
+        n_rppg = len(self.rppg_amplitude_history)
+        frames_rppg = np.arange(n_rppg)
+        plt.subplot(3,2,6)
+        plt.plot(frames_rppg, self.rppg_amplitude_history, 'y-', label="rPPG Amp")
+        plt.title("rPPG Amplitude")
         plt.xlabel("Frame")
         plt.ylabel("Value")
         plt.legend()
